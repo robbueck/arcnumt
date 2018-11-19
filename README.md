@@ -1,6 +1,6 @@
 # arcnumt
-Scripts used to detect archaic NUMTs in NGS dataDetection of archaic NUMTs in NGS data.
-=======================================================================================
+Scripts used to detect archaic NUMTs in NGS data
+================================================
 
 Description
 -----------
