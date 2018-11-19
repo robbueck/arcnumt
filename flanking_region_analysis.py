@@ -6,14 +6,48 @@ import vcf
 import numpy as np
 import multiprocessing as mp
 from scipy.stats import binom_test
-# import time
+import argparse
+import os.path
 # import matplotlib.pyplot as plt
 
 ###############################################################
 # get input files
 ##############################################################
 
+parser = argparse.ArgumentParser()
+parser.add_argument('-w', '--worldwide-freq', nargs='+', action='store',
+                    help='''list of phased vcfs from populations
+                    without introgression''')
+parser.add_argument('-m', '--worldwide-match', nargs='*',
+                    help='''vcf files to calculate match ratios for not
+                    introgressed populations. large vcfs can be split by
+                    samples for faster parallel processing. if not specified,
+                    files given with -w are used''')
+parser.add_argument('-s', '--samples-vcf', nargs='+', action='store',
+                    help='list of phased vcfs from samples to analyse')
+parser.add_argument('-a', '--archaic-vcf', action='store',
+                    help='vcf of putative introgressed archaic human')
+
+args = parser.parse_args()
+
+
 output = mp.Queue()
+
+FREQ_FILES = {}
+MATCH_FILES = []
+SAMPLES_FILE = []
+for input_file in args.wordwide_freq:
+    name = os.path.basename(input_file).split('.')[0]
+    FREQ_FILES[name] = vcf.Reader(filename=input_file)
+
+if args.wordwide_match:
+    for input_file in args.wordwide_freq:
+        MATCH_FILES.add(vcf.Reader(filename=input_file))
+else:
+    MATCH_FILES = FREQ_FILES
+
+for input_file in args.samples_vcf:
+    SAMPLES_FILE.add(vcf.Reader(filename=input_file))
 
 ind_file = vcf.Reader(filename='/home/robert_buecking/References/'
                       'phased_flanking/ind_chr3_138_snp_only.vcf.gz')
@@ -21,35 +55,19 @@ pap_file = vcf.Reader(filename='/home/robert_buecking/References/'
                       'phased_flanking/pap_chr3_138_snp_only.vcf.gz')
 gp_file = vcf.Reader(filename='/home/robert_buecking/References/'
                      'phased_flanking/gp_chr3_138_snp_only.vcf.gz')
-gp_file_0 = vcf.Reader(filename='/home/robert_buecking/References/'
-                       'phased_flanking/gp_chr3_138_snp_only_samples.vcf.gz')
-gp_file_1 = vcf.Reader(filename='/home/robert_buecking/References/'
-                       'phased_flanking/gp_chr3_138_snp_only_samples1.vcf.gz')
-gp_file_2 = vcf.Reader(filename='/home/robert_buecking/References/'
-                       'phased_flanking/gp_chr3_138_snp_only_samples2.vcf.gz')
-gp_file_3 = vcf.Reader(filename='/home/robert_buecking/References/'
-                       'phased_flanking/gp_chr3_138_snp_only_samples3.vcf.gz')
 sgdp_file = vcf.Reader(filename='/home/robert_buecking/References/'
                        'phased_flanking/sgdp_chr3_138_snp_only.vcf.gz')
-den_file = vcf.Reader(filename='/mnt/454/Vindija/high_cov/genotypes/'
-                      'Denisova/chr3_mq25_mapab100.vcf.gz')
+den_file = vcf.Reader(filename=args.archaic_vcf)
 
 
 PHASE = {'UV043': 1, 'UV1260': 1, 'UV925': 1, 'UV927': 1, 'UV956': 0,
          'UV958': 0, 'UV971': 1, 'UV979': 1, 'S_Papuan-5': 0, 'S_Papuan-10': 0,
          "ALR06": 1, "ALR11": 0, "FAN-KEI-024": 0, "NG88-F": 1, "UV030": 1}
-# PHASE = {'UV043': 1, 'UV1260': 1, 'UV925': 1, 'UV927': 1, 'UV956': 0,
-#          'UV958': 0, 'UV971': 1, 'UV979': 1}
-IND_SAMPLES = ind_file.samples
-PAP_SAMPLES = pap_file.samples
-SGDP_SAMPLES = sgdp_file.samples
-GP_SAMPLES = gp_file.samples
-ALL_SAMPLES = PAP_SAMPLES + SGDP_SAMPLES + GP_SAMPLES + IND_SAMPLES
-for sample in ALL_SAMPLES:
-    if sample not in PHASE.keys():
-        PHASE[sample] = 3
-STUDIES = [pap_file, sgdp_file, gp_file_0, gp_file_1, gp_file_2, gp_file_3,
-           ind_file]
+STUDIES = MATCH_FILES + SAMPLES_FILE
+for stud in STUDIES:
+    for sample in stud.samples:
+        if sample not in PHASE.keys():
+            PHASE[sample] = 3
 
 STUDY_DICT = {}
 POP_DICT = {}
@@ -224,7 +242,6 @@ NUMT_JACK_UP = {}
 NUMT_JACK_DOWN = {}
 MATCH_RATIO_UP = {}
 MATCH_RATIO_DOWN = {}
-ALLEL_FREQS = {}
 GP_ALLEL_FREQS_SAMPLE = {}
 # PAP_ALLEL_FREQS_SAMPLE = {}
 IND_ALLEL_FREQS_SAMPLE = {}
@@ -240,26 +257,26 @@ SGDP_ALLEL_FREQS_SAMPLE = {}
 
 print('start analyzing match ratios')
 
-# processes = [mp.Process(target=get_sample_stats, args=(x, STUDIES[x]))
-#              for x in range(7)]
-# for p in processes:
-#     p.start()
-#
-# for p in processes:
-#     p.join()
-#
-# results = [output.get() for p in processes]
+processes = [mp.Process(target=get_sample_stats, args=(x, STUDIES[x]))
+             for x in range(7)]
+for p in processes:
+    p.start()
+
+for p in processes:
+    p.join()
+
+results = [output.get() for p in processes]
 # if program fails after here, just comment lines above and uncomment lines
 # below to prevent starting analysis all over again. also comment os.remove
 # below so temp files don't get removed
-results = [(0, '/home/robert_buecking/flanking_region/temp_file0'),
-           (1, '/home/robert_buecking/flanking_region/temp_file1'),
-           (2, '/home/robert_buecking/flanking_region/temp_file2'),
-           (3, '/home/robert_buecking/flanking_region/temp_file3'),
-           (4, '/home/robert_buecking/flanking_region/temp_file4'),
-           (5, '/home/robert_buecking/flanking_region/temp_file5'),
-           (6, '/home/robert_buecking/flanking_region/temp_file6')]
-results.sort()
+# results = [(0, '/home/robert_buecking/flanking_region/temp_file0'),
+#            (1, '/home/robert_buecking/flanking_region/temp_file1'),
+#            (2, '/home/robert_buecking/flanking_region/temp_file2'),
+#            (3, '/home/robert_buecking/flanking_region/temp_file3'),
+#            (4, '/home/robert_buecking/flanking_region/temp_file4'),
+#            (5, '/home/robert_buecking/flanking_region/temp_file5'),
+#            (6, '/home/robert_buecking/flanking_region/temp_file6')]
+# results.sort()
 # SNPS = {k: v for d in results for k, v in d.items()}
 # positions.update(set(a for a in SNPS[sample].keys()))
 
@@ -317,28 +334,6 @@ for study in TEMP_FILES:
 
 print('finished match ratio analysis, start analyzing matching sites')
 
-# SITES = sorted(set(MATCHING_SITES))
-# ALLEL_FREQS['numt'] = {pos: (MATCHING_SITES.count(pos) / 15)
-#                       for pos in SITES if pos >= 13838634 or pos <= 13858483}
-# ALLEL_FREQS['numt'].update({pos: (MATCHING_SITES.count(pos) / 10)
-#                             for pos in SITES if pos < 13838634
-#                             and pos > 13858483})
-# ALLEL_FREQS['sgdp'] = allel_freq(sgdp_file, MATCHING_SITES)
-# # ALLEL_FREQS['pap'] = allel_freq(pap_file, MATCHING_SITES)
-# ALLEL_FREQS['gp'] = allel_freq(gp_file, MATCHING_SITES)
-# # ALLEL_FREQS['ind'] = allel_freq(ind_file, MATCHING_SITES)
-
-# for sample in MATCHING_SITES_PER_SAMPLE.keys():
-#     GP_ALLEL_FREQS_SAMPLE[sample] = allel_freq(
-#         gp_file, MATCHING_SITES_PER_SAMPLE[sample])
-#     SGDP_ALLEL_FREQS_SAMPLE[sample] = allel_freq(
-GP_ALLEL_FREQS_SAMPLE = allel_freq(gp_file, MATCHING_SITES)
-SGDP_ALLEL_FREQS_SAMPLE = allel_freq(sgdp_file, MATCHING_SITES)
-#       sgdp_file, MATCHING_SITES_PER_SAMPLE[sample])
-#     PAP_ALLEL_FREQS_SAMPLE[sample] = allel_freq(
-#         pap_file, MATCHING_SITES_PER_SAMPLE[sample])
-#     IND_ALLEL_FREQS_SAMPLE[sample] = allel_freq(
-#         ind_file, MATCHING_SITES_PER_SAMPLE[sample])
 
 # counting alleles matching denisova with low frequency in global studies
 
@@ -363,20 +358,22 @@ print('computing low freqs in 1000GP and SGDP')
 #     LOW_FREQ_GP[x[0]] = x[1]
 #     LOW_FREQ_SGDP[x[0]] = x[2]
 
-
-LOW_FREQ_GP = {}
-LOW_FREQ_SGDP = {}
+LOW_SAMPLE_ALLEL_FREQS = {}
+SAMPLE_ALLEL_FREQS = {}
+LOW_ALLEL_FREQS = {}
+ALLEL_FREQS = {}
 current = 0
 for sample in MATCHING_SITES_PER_SAMPLE.keys():
+    ALLEL_FREQS = {}
     current += 1
     if current in range(0, 6000, 200):
         print('finished ' + str(current) + ' Samples')
-    freq_count_gp = allel_freq(gp_file, MATCHING_SITES_PER_SAMPLE[sample])
-    freq_count_sgdp = allel_freq(sgdp_file, MATCHING_SITES_PER_SAMPLE[sample])
-    LOW_FREQ_GP[sample] = [a for a in freq_count_gp.keys() if
-                           freq_count_gp[a] <= 0.05 and a <= 13851000]
-    LOW_FREQ_SGDP[sample] = [a for a in freq_count_sgdp.keys()
-                             if freq_count_gp[a] <= 0.05 and a <= 13851000]
+    for f in FREQ_FILES.keys():
+        ALLEL_FREQS[f] = allel_freq(FREQ_FILES[f], MATCHING_SITES)
+        LOW_ALLEL_FREQS[f] = len([a for a in ALLEL_FREQS[f].values()
+                                  if a <= 0.05])
+    SAMPLE_ALLEL_FREQS[sample] = ALLEL_FREQS
+    LOW_SAMPLE_ALLEL_FREQS[sample] = LOW_ALLEL_FREQS
 
 
 #############################################################
@@ -392,33 +389,27 @@ with open("/home/robert_buecking/References/all_studies_samples.txt",
 
 with open("/home/robert_buecking/flanking_region/match_ratios.txt", "w+") as f:
     f.write('SAMPLE\tMATCH_RATIO_UP\tSITES_UP\tMATCH_RATIO_DOWN\tSITES_DOWN\t'
-            + 'P_BINOM_PHASE\tLOW_FREQ_GP\tLOW_FREQ_SGDP\tPOPULATION\tREGION'
-            + '\tCOUNTRY\tSTUDY\n')
+            + '\tLOW_FREQS_' +
+            ('\tLOW_FREQS_').join(sorted(FREQ_FILES.keys())) +
+            '\tPOPULATION\tREGION' + '\tCOUNTRY\tSTUDY\n')
     for sample in MATCH_RATIO_UP.keys():
+        LOWS = [LOW_SAMPLE_ALLEL_FREQS[sample][f] for f in
+                sorted(FREQ_FILES.keys())]
         f.write(sample + "\t" + str(MATCH_RATIO_UP[sample]) + "\t"
-                + str(MATCH_RATIO_DOWN[sample]) + "\t" + P_BINOM[sample] + '\t'
-                + str(len(LOW_FREQ_GP[sample])) + '\t'
-                + str(len(LOW_FREQ_SGDP[sample])) + '\t'
+                + str(MATCH_RATIO_DOWN[sample]) + "\t" + LOWS.join('\t') + '\t'
                 + ("\t").join(SAMPLE_INFO[INFO_SAMPLE[sample]]))
 
 with open('/home/robert_buecking/flanking_region/den_freqs.txt', 'w+') as f:
-    # f.write('STUDY' + '\t' + '\t'.join(map(str, SITES)) + '\n')
-    # for study in ALLEL_FREQS.keys():
-    #     f.write(study + '\t' + '\t'.join(map(str, [ALLEL_FREQS[study][a]
-    #                                                for a in SITES])) + '\n')
-    positions = sorted(list(GP_ALLEL_FREQS_SAMPLE.keys()))
-    f.write('\n' + sample + '\n' + 'STUDY' + '\t'
-            + '\t'.join(map(str, positions)) + '\n')
-#         f.write('pap\t' + '\t'.join(map(str,
-#                                         [PAP_ALLEL_FREQS_SAMPLE[sample][a]
-#                                          for a in positions])) + '\n')
-    f.write('sgdp\t' + '\t'.join(map(str,
-                                     [SGDP_ALLEL_FREQS_SAMPLE[a]
-                                      for a in positions])) + '\n')
-    f.write('gp\t' + '\t'.join(map(str, [GP_ALLEL_FREQS_SAMPLE[a]
-                                         for a in positions])) + '\n')
-#         f.write('ind\t' + '\t'.join(map(str,
-#                                         [IND_ALLEL_FREQS_SAMPLE[sample][a]
-#                                          for a in positions])) + '\n')
-# for study in TEMP_FILES:
-#     os.remove(study)
+    for sample in MATCHING_SITES_PER_SAMPLE.keys():
+        positions = sorted(SAMPLE_ALLEL_FREQS.keys())
+        f.write('\n' + sample + '\nSTUDY\t' + '\t'.join(map(str, positions))
+                + '\n')
+        for study in sorted(FREQ_FILES.keys()):
+            f.write(study + '\t' +
+                    '\t'.join(map(str,
+                                  [SAMPLE_ALLEL_FREQS[sample][study][a] for
+                                   a in positions]))
+                    + '\n')
+
+for study in TEMP_FILES:
+    os.remove(study)
