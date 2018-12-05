@@ -32,6 +32,7 @@ parser.add_argument('-p', '--numt_phase', action='store', help='''file with
 parser.add_argument('-t', '--threads', action='store')
 parser.add_argument('-r', '--region', action='store', help='''chromosomal
                     position, e.g. 3:1384800-1385800''')
+parser.add_argument('-o', '--outfiles-prefix', action='store')
 
 args = parser.parse_args()
 
@@ -41,18 +42,21 @@ output = mp.Queue()
 FREQ_FILES = {}
 MATCH_FILES = []
 SAMPLES_FILE = []
-for input_file in args.wordwide_freq:
+for input_file in args.worldwide_freq:
     name = os.path.basename(input_file).split('.')[0]
-    FREQ_FILES[name] = vcf.Reader(filename=input_file)
+    # FREQ_FILES[name] = vcf.Reader(filename=input_file)
+    FREQ_FILES[name] = input_file
 
-if args.wordwide_match:
-    for input_file in args.wordwide_freq:
-        MATCH_FILES.add(vcf.Reader(filename=input_file))
+if args.worldwide_match:
+    for input_file in args.worldwide_match:
+        # MATCH_FILES.append(vcf.Reader(filename=input_file))
+        MATCH_FILES.append(input_file)
 else:
-    MATCH_FILES = FREQ_FILES
+    MATCH_FILES = list(FREQ_FILES.values())
 
 for input_file in args.samples_vcf:
-    SAMPLES_FILE.add(vcf.Reader(filename=input_file))
+    # SAMPLES_FILE.append(vcf.Reader(filename=input_file))
+    SAMPLES_FILE.append(input_file)
 
 den_file = vcf.Reader(filename=args.archaic_vcf)
 
@@ -63,13 +67,16 @@ for line in phasefile.readlines():
     PHASE[sample] = phase
 
 STUDIES = MATCH_FILES + SAMPLES_FILE
-for stud in STUDIES:
-    for sample in stud.samples:
-        if sample not in PHASE.keys():
-            PHASE[sample] = 3
+# for stud in STUDIES:
+#     for sample in stud.samples:
+#         if sample not in PHASE.keys():
+#             PHASE[sample] = 3
 
 chrom, region = args.region.split(':')
+chrom = int(chrom)
 start, end = region.split('-')
+start = int(start)
+end = int(end)
 ##############################################################
 # defenition of functions
 ##############################################################
@@ -123,12 +130,14 @@ def check_match(den_snps, hum_snps, p, no_phase):
         return stats
 
 
-def get_sample_stats(n, vcf_hum):
+def get_sample_stats(intake):
     """
     creates dictionary for all sites between a modern humand and a denisovan
     with 0: no denisova match and 1: denisova match
     """
     # declaring variables
+    n = intake[0]
+    vcf_hum = vcf.Reader(filename=intake[1])
     DEN_VS = {}
     unphased = []
     for record in den_file.fetch(chrom, start, end):
@@ -154,13 +163,15 @@ def get_sample_stats(n, vcf_hum):
                                stats1.items()]) + '\n')
     temp.close()
     print('finished analyzing file: ' + vcf_hum.filename)
-    output.put((n, temp_name))
+    # output.put((n, temp_name))
+    return (n, temp_name)
 
 
-def allel_freq(vcf_file, positions):
+def allel_freq(vcf_file_name, positions):
     '''takes a vcf_file and the positions where modern humans and dens match.
     for alleles where modern humans
     and denisova match, report the allele frequency in vcf-file'''
+    vcf_file = vcf.Reader(filename=vcf_file_name)
     FREQ = {}
     for pos in set(positions):
         FREQ[pos] = 0
@@ -181,18 +192,14 @@ def allel_freq(vcf_file, positions):
 def low_freqs(sample_matching_sites):
     '''counts how many matching alleles have a frequency below 0.05 in each
     study file'''
+    FREQS = {}
     sample = sample_matching_sites[0]
     matching_sites = sample_matching_sites[1]
-    freq_count_sgdp = allel_freq(sgdp_file, matching_sites)
-    freq_count_gp = allel_freq(gp_file, matching_sites)
-    FREQ_GP = [a for a in freq_count_gp.keys()
-               if freq_count_gp[a] <= 0.05 and a <= 13851000]
-    FREQ_SGDP = [a for a in freq_count_sgdp.keys()
-                 if freq_count_sgdp[a] <= 0.05 and a <= 1385100]
-    # output_gp.put(FREQ)
-    # output_sgdp.put(FREQ)
+    for study in FREQ_FILES:
+        freq_count = allel_freq(study, matching_sites)
+        FREQS[study] = [a for a in freq_count.keys() if freq_count[a] <= 0.05]
     print('finished low_freqs')
-    return((sample, FREQ_GP, FREQ_SGDP))
+    return(sample, FREQS)
 
 
 ################################################################
@@ -200,33 +207,30 @@ def low_freqs(sample_matching_sites):
 ###############################################################
 
 # dictionaries for results for output
-NUMT_SUM_STATS = {}
 MATCH_RATIO = {}
-GP_ALLEL_FREQS_SAMPLE = {}
-PAP_ALLEL_FREQS_SAMPLE = {}
-IND_ALLEL_FREQS_SAMPLE = {}
-SGDP_ALLEL_FREQS_SAMPLE = {}
 
 
-# pool = mp.Pool(processes=2)
-# results = [pool.apply(get_sample_stats, args=(x, ))
-#            for x in range(2)]
-# print(results)
+print('start analyzing match ratios pool')
+pool = mp.Pool(processes=20)
+results = pool.map(get_sample_stats, [(x, STUDIES[x]) for x in
+                                      range(len(STUDIES))])
+print(results)
+
 
 print('start analyzing match ratios')
-
-processes = [mp.Process(target=get_sample_stats, args=(x, STUDIES[x]))
-             for x in range(7)]
-for p in processes:
-    p.start()
-
-for p in processes:
-    p.join()
-
-results = [output.get() for p in processes]
+# processes = [mp.Process(target=get_sample_stats, args=(x, STUDIES[x]))
+#              for x in range(len(STUDIES))]
+# for p in processes:
+#     p.start()
+#
+# for p in processes:
+#     p.join()
+#
+# results = [output.get() for p in processes]
 # if program fails after here, just comment lines above and uncomment lines
-# below to prevent starting analysis all over again. also comment os.remove
-# below so temp files don't get removed
+# below to prevent starting analysis all over again. change names of tmep files
+# also comment os.remove
+# at the end of the script so temp files don't get removed
 # results = [(0, '/home/robert_buecking/flanking_region/temp_file0'),
 #            (1, '/home/robert_buecking/flanking_region/temp_file1'),
 #            (2, '/home/robert_buecking/flanking_region/temp_file2'),
@@ -235,17 +239,6 @@ results = [output.get() for p in processes]
 #            (5, '/home/robert_buecking/flanking_region/temp_file5'),
 #            (6, '/home/robert_buecking/flanking_region/temp_file6')]
 # results.sort()
-# SNPS = {k: v for d in results for k, v in d.items()}
-# positions.update(set(a for a in SNPS[sample].keys()))
-
-# for sample in SNPS.keys():
-#     print('llll')
-#     MATCH_RATIO_UP[sample] = np.average(list(
-#         SNPS[sample][x] for x in SNPS[sample].keys() if x <= 13848625)
-#     )
-#     MATCH_RATIO_DONW[sample] = np.average(list(
-#         SNPS[sample][x] for x in SNPS[sample].keys() if x > 13848625)
-#     )
 
 TEMP_FILES = [r[1] for r in results]
 MATCHING_SITES = []
@@ -258,7 +251,7 @@ for study in TEMP_FILES:
         line = line.split('\t')
         sample = line[0]
         phase = line[1]
-        if int(phase) == PHASE[sample]:
+        if sample in PHASE.keys() and int(phase) == PHASE[sample]:
             sample = 'N_' + sample
         sample = sample + '_' + str(phase)
         INFO_SAMPLE[sample] = line[0]
@@ -312,7 +305,8 @@ for sample in MATCHING_SITES_PER_SAMPLE.keys():
     if current in range(0, 6000, 200):
         print('finished ' + str(current) + ' Samples')
     for f in FREQ_FILES.keys():
-        ALLEL_FREQS[f] = allel_freq(FREQ_FILES[f], MATCHING_SITES)
+        ALLEL_FREQS[f] = allel_freq(FREQ_FILES[f],
+                                    MATCHING_SITES_PER_SAMPLE[sample])
         LOW_ALLEL_FREQS[f] = len([a for a in ALLEL_FREQS[f].values()
                                   if a <= 0.05])
     SAMPLE_ALLEL_FREQS[sample] = ALLEL_FREQS
@@ -330,7 +324,8 @@ with open("/home/robert_buecking/References/all_studies_samples.txt",
         line = l.split("\t")
         SAMPLE_INFO[line[0]] = line[1:]
 
-with open("/home/robert_buecking/flanking_region/match_ratios.txt", "w+") as f:
+match_filename = args.outfiles_prefix + '_match_ratios.txt'
+with open(match_filename, "w+") as f:
     f.write('SAMPLE\tMATCH_RATIO\tSITES\t\tLOW_FREQS_' +
             ('\tLOW_FREQS_').join(sorted(FREQ_FILES.keys())) +
             '\tPOPULATION\tREGION\tCOUNTRY\tSTUDY\n')
@@ -341,7 +336,8 @@ with open("/home/robert_buecking/flanking_region/match_ratios.txt", "w+") as f:
                 + LOWS.join('\t') + '\t'
                 + ("\t").join(SAMPLE_INFO[INFO_SAMPLE[sample]]))
 
-with open('/home/robert_buecking/flanking_region/den_freqs.txt', 'w+') as f:
+den_freq_filename = args.outfiles_prefix + '_den_freqs.txt'
+with open(den_freq_filename, 'w+') as f:
     for sample in MATCHING_SITES_PER_SAMPLE.keys():
         positions = sorted(SAMPLE_ALLEL_FREQS.keys())
         f.write('\n' + sample + '\nSTUDY\t' + '\t'.join(map(str, positions))
@@ -353,5 +349,5 @@ with open('/home/robert_buecking/flanking_region/den_freqs.txt', 'w+') as f:
                                    a in positions]))
                     + '\n')
 
-for study in TEMP_FILES:
-    os.remove(study)
+# for study in TEMP_FILES:
+#     os.remove(study)
