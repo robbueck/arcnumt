@@ -7,6 +7,7 @@ Description
 
 A pipeline including a collection of scripts used to analyse NUMTs discovered in whole genome paired read data.
 flanking_region_analysis.py is a script used to calculate match ratios with archaic genomes of a specific genomic region.
+numt_stats.py is a script to calculate various statistics for discovered NUMTs.
 
 Required resources
 ------------------
