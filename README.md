@@ -8,6 +8,7 @@ Description
 A pipeline including a collection of scripts used to analyse NUMTs discovered in whole genome paired read data.
 flanking_region_analysis.py is a script used to calculate match ratios with archaic genomes of a specific genomic region.
 numt_stats.py is a script to calculate various statistics for discovered NUMTs.
+mito_variance.py is a script to calculate pariwise differences between all sequences of an alignment.
 
 Required resources
 ------------------
@@ -54,4 +55,3 @@ java -jar gatk3.8 -T FalstaAlternateReferenceMaker -R RSRS.fasta -o numt.fasta -
 
 extract_mito.py -n numt.fasta -a aligned_mt_genomes.fasta -b numt.bed -o numt_mito.fasta
 ~~~
-
