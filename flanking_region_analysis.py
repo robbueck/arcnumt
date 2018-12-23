@@ -215,9 +215,9 @@ MATCH_RATIO = {}
 
 print('start analyzing match ratios')
 # get matching positions
-pool = mp.Pool(processes=20)
-results = pool.map(get_sample_stats, [(x, STUDIES[x]) for x in
-                                      range(len(STUDIES))])
+# pool = mp.Pool(processes=20)
+# results = pool.map(get_sample_stats, [(x, STUDIES[x]) for x in
+#                                       range(len(STUDIES))])
 
 # processes = [mp.Process(target=get_sample_stats, args=(x, STUDIES[x]))
 #              for x in range(len(STUDIES))]
@@ -232,12 +232,12 @@ results = pool.map(get_sample_stats, [(x, STUDIES[x]) for x in
 # below to prevent starting analysis all over again. change names of tmep files
 # also comment os.remove
 # at the end of the script so temp files don't get removed
-# results = [(0, '/home/robert_buecking/flanking_region/temp_file0'),
-#            (1, '/home/robert_buecking/flanking_region/temp_file1'),
-#            (2, '/home/robert_buecking/flanking_region/temp_file2'),
-#            (3, '/home/robert_buecking/flanking_region/temp_file3'),
-#            (4, '/home/robert_buecking/flanking_region/temp_file4'),
-#            (5, '/home/robert_buecking/flanking_region/temp_file5')]
+results = [(0, '/home/robert_buecking/flanking_region/temp_file0'),
+           (1, '/home/robert_buecking/flanking_region/temp_file1'),
+           (2, '/home/robert_buecking/flanking_region/temp_file2'),
+           (3, '/home/robert_buecking/flanking_region/temp_file3'),
+           (4, '/home/robert_buecking/flanking_region/temp_file4'),
+           (5, '/home/robert_buecking/flanking_region/temp_file5')]
 results.sort()
 
 # calculate match ratios
@@ -314,7 +314,6 @@ with open(match_filename, "w+") as f:
             ('\tLOW_FREQS_').join(sorted(FREQ_FILES.keys())) + '\t'
             + ('\t').join(info_fields))
     for sample in MATCH_RATIO.keys():
-        print(SAMPLE_INFO[sample[2:-2]])
         LOWS = [str(LOW_SAMPLE_ALLEL_FREQS[sample][f]) for f in
                 sorted(FREQ_FILES.keys())]
         f.write(sample + "\t" + str(MATCH_RATIO[sample]) + "\t"
@@ -324,6 +323,7 @@ with open(match_filename, "w+") as f:
 den_freq_filename = args.outfiles_prefix + '_den_freqs.txt'
 with open(den_freq_filename, 'w+') as f:
     for sample in MATCHING_SITES_PER_SAMPLE.keys():
+        print(sample)
         positions = sorted(SAMPLE_ALLEL_FREQS.keys())
         f.write('\n' + sample + '\nSTUDY\t' + '\t'.join(map(str, positions))
                 + '\n')
