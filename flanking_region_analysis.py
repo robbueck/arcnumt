@@ -33,6 +33,9 @@ parser.add_argument('-t', '--threads', action='store')
 parser.add_argument('-r', '--region', action='store', help='''chromosomal
                     position, e.g. 3:1384800-1385800''')
 parser.add_argument('-o', '--outfiles-prefix', action='store')
+parser.add_argument('-i', '--info-file', action='store', help='''file with
+                    sample informations in columns. first row name of
+                    categories, first column sample names''')
 
 args = parser.parse_args()
 
@@ -210,14 +213,12 @@ def low_freqs(sample_matching_sites):
 MATCH_RATIO = {}
 
 
-print('start analyzing match ratios pool')
+print('start analyzing match ratios')
+# get matching positions
 pool = mp.Pool(processes=20)
 results = pool.map(get_sample_stats, [(x, STUDIES[x]) for x in
                                       range(len(STUDIES))])
-print(results)
 
-
-print('start analyzing match ratios')
 # processes = [mp.Process(target=get_sample_stats, args=(x, STUDIES[x]))
 #              for x in range(len(STUDIES))]
 # for p in processes:
@@ -236,10 +237,10 @@ print('start analyzing match ratios')
 #            (2, '/home/robert_buecking/flanking_region/temp_file2'),
 #            (3, '/home/robert_buecking/flanking_region/temp_file3'),
 #            (4, '/home/robert_buecking/flanking_region/temp_file4'),
-#            (5, '/home/robert_buecking/flanking_region/temp_file5'),
-#            (6, '/home/robert_buecking/flanking_region/temp_file6')]
-# results.sort()
+#            (5, '/home/robert_buecking/flanking_region/temp_file5')]
+results.sort()
 
+# calculate match ratios
 TEMP_FILES = [r[1] for r in results]
 MATCHING_SITES = []
 MATCHING_SITES_PER_SAMPLE = {}
@@ -247,24 +248,26 @@ INFO_SAMPLE = {}
 for study in TEMP_FILES:
     f = open(study, 'r')
     for l in f.readlines():
-        line = l.rstrip()
-        line = line.split('\t')
-        sample = line[0]
-        phase = line[1]
+        line = l.rstrip().split('\t')
+        # line = line.split('\t')
+        sample, phase, sites = line
+        sites = sites.split(';')
         if sample in PHASE.keys() and int(phase) == PHASE[sample]:
-            sample = 'N_' + sample
+            sample = 'X_' + sample
+        else:
+            sample = 'O_' + sample
         sample = sample + '_' + str(phase)
-        INFO_SAMPLE[sample] = line[0]
-        matches = [int(x.split(':')[1]) for x in line[3].split(';')]
+
+        matches = [int(x.split(':')[1]) for x in sites]
         MATCH_RATIO[sample] = (str(np.average(matches)) + '\t'
                                + str(len(matches)))
-        sites = line[3].split(';')
+
         MATCHING_SITES_PER_SAMPLE[sample] = list()
         for x in sites:
-            if int(x.split(':')[1]) == 1:
-                MATCHING_SITES.append(int(x.split(':')[0]))
-                MATCHING_SITES_PER_SAMPLE[sample].append(
-                    int(x.split(':')[0]))
+            x = x.split(':')
+            if int(x[1]) == 1:
+                MATCHING_SITES.append(int(x[0]))
+                MATCHING_SITES_PER_SAMPLE[sample].append(int(x[0]))
     f.close()
 
 
@@ -273,26 +276,7 @@ print('finished match ratio analysis, start analyzing matching sites')
 
 # counting alleles matching denisova with low frequency in global studies
 
-print('computing low freqs in 1000GP and SGDP')
-
-# LOW_FREQ_GP = {}
-# LOW_FREQ_SGDP = {}
-# pool = mp.Pool(processes=40)
-# results = pool.imap_unordered(low_freqs,
-#                               list(MATCHING_SITES_PER_SAMPLE.items()))
-# pool.close()
-#
-# while (True):
-#     completed = results._index
-#     if (completed == len(MATCHING_SITES_PER_SAMPLE)):
-#         break
-#     print("Waiting for", len(MATCHING_SITES_PER_SAMPLE) - completed,
-#           "tasks to complete...")
-#     time.sleep(50)
-#
-# for x in results:
-#     LOW_FREQ_GP[x[0]] = x[1]
-#     LOW_FREQ_SGDP[x[0]] = x[2]
+print('computing low freqs in ' + (', ').join(FREQ_FILES.keys()))
 
 LOW_SAMPLE_ALLEL_FREQS = {}
 SAMPLE_ALLEL_FREQS = {}
@@ -318,8 +302,8 @@ for sample in MATCHING_SITES_PER_SAMPLE.keys():
 print("writing data to files")
 
 SAMPLE_INFO = {}
-with open("/home/robert_buecking/References/all_studies_samples.txt",
-          'r') as f:
+with open(args.info_file, 'r') as f:
+    info_fields = f.readline().split('\t')[1:]
     for l in f:
         line = l.split("\t")
         SAMPLE_INFO[line[0]] = line[1:]
@@ -327,14 +311,15 @@ with open("/home/robert_buecking/References/all_studies_samples.txt",
 match_filename = args.outfiles_prefix + '_match_ratios.txt'
 with open(match_filename, "w+") as f:
     f.write('SAMPLE\tMATCH_RATIO\tSITES\t\tLOW_FREQS_' +
-            ('\tLOW_FREQS_').join(sorted(FREQ_FILES.keys())) +
-            '\tPOPULATION\tREGION\tCOUNTRY\tSTUDY\n')
+            ('\tLOW_FREQS_').join(sorted(FREQ_FILES.keys())) + '\t'
+            + ('\t').join(info_fields))
     for sample in MATCH_RATIO.keys():
-        LOWS = [LOW_SAMPLE_ALLEL_FREQS[sample][f] for f in
+        print(SAMPLE_INFO[sample[2:-2]])
+        LOWS = [str(LOW_SAMPLE_ALLEL_FREQS[sample][f]) for f in
                 sorted(FREQ_FILES.keys())]
         f.write(sample + "\t" + str(MATCH_RATIO[sample]) + "\t"
-                + LOWS.join('\t') + '\t'
-                + ("\t").join(SAMPLE_INFO[INFO_SAMPLE[sample]]))
+                + ('\t').join(LOWS) + '\t'
+                + ("\t").join(SAMPLE_INFO[sample[2:-2]]))
 
 den_freq_filename = args.outfiles_prefix + '_den_freqs.txt'
 with open(den_freq_filename, 'w+') as f:
