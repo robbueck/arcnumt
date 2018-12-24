@@ -283,11 +283,11 @@ SAMPLE_ALLEL_FREQS = {}
 LOW_ALLEL_FREQS = {}
 ALLEL_FREQS = {}
 current = 0
-for sample in MATCHING_SITES_PER_SAMPLE.keys():
+samps = MATCHING_SITES_PER_SAMPLE.keys()
+for sample in samps:
     ALLEL_FREQS = {}
-    current += 1
-    if current in range(0, 6000, 200):
-        print('finished ' + str(current) + ' Samples')
+    if current in range(0, len(samps), 200):
+        print(str(len(samps) - current) + ' Samples left to analyse')
     for f in FREQ_FILES.keys():
         ALLEL_FREQS[f] = allel_freq(FREQ_FILES[f],
                                     MATCHING_SITES_PER_SAMPLE[sample])
@@ -295,6 +295,7 @@ for sample in MATCHING_SITES_PER_SAMPLE.keys():
                                   if a <= 0.05])
     SAMPLE_ALLEL_FREQS[sample] = ALLEL_FREQS
     LOW_SAMPLE_ALLEL_FREQS[sample] = LOW_ALLEL_FREQS
+    current += 1
 
 
 #############################################################
@@ -324,10 +325,12 @@ den_freq_filename = args.outfiles_prefix + '_den_freqs.txt'
 with open(den_freq_filename, 'w+') as f:
     for sample in MATCHING_SITES_PER_SAMPLE.keys():
         print(sample)
-        positions = sorted(SAMPLE_ALLEL_FREQS.keys())
+        positions = sorted(MATCHING_SITES_PER_SAMPLE[sample].keys())
+        print(positions)
         f.write('\n' + sample + '\nSTUDY\t' + '\t'.join(map(str, positions))
                 + '\n')
         for study in sorted(FREQ_FILES.keys()):
+            print(study)
             f.write(study + '\t' +
                     '\t'.join(map(str,
                                   [SAMPLE_ALLEL_FREQS[sample][study][a] for
