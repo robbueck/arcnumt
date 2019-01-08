@@ -67,7 +67,7 @@ PHASE = {}
 phasefile = open(args.numt_phase, 'r')
 for line in phasefile.readlines():
     sample, phase = line.rstrip().split('\t')
-    PHASE[sample] = phase
+    PHASE[sample] = int(phase)
 
 STUDIES = MATCH_FILES + SAMPLES_FILE
 # for stud in STUDIES:
@@ -280,23 +280,38 @@ print('computing low freqs in ' + (', ').join(FREQ_FILES.keys()))
 
 LOW_SAMPLE_ALLEL_FREQS = {}
 SAMPLE_ALLEL_FREQS = {}
-LOW_ALLEL_FREQS = {}
-ALLEL_FREQS = {}
 current = 0
 samps = MATCHING_SITES_PER_SAMPLE.keys()
+lowsamples = []
+lsamp = 0
 for sample in samps:
     ALLEL_FREQS = {}
+    LOW_ALLEL_FREQS = {}
     if current in range(0, len(samps), 200):
         print(str(len(samps) - current) + ' Samples left to analyse')
     for f in FREQ_FILES.keys():
         ALLEL_FREQS[f] = allel_freq(FREQ_FILES[f],
                                     MATCHING_SITES_PER_SAMPLE[sample])
         LOW_ALLEL_FREQS[f] = len([a for a in ALLEL_FREQS[f].values()
-                                  if a <= 0.05])
+                                  if a <= 0.1])
     SAMPLE_ALLEL_FREQS[sample] = ALLEL_FREQS
     LOW_SAMPLE_ALLEL_FREQS[sample] = LOW_ALLEL_FREQS
     current += 1
-
+    # if LOW_ALLEL_FREQS[list(FREQ_FILES.keys())[0]] > 0:
+    #     if lsamp == 0:
+    #         lsamp = sample
+    #     print(f + '\t' + sample)
+    #     print(lsamp)
+    #     print(LOW_SAMPLE_ALLEL_FREQS[lsamp])
+    #     lowsamples.append(sample)
+    #     print((LOW_SAMPLE_ALLEL_FREQS))
+for stu in FREQ_FILES.keys():
+    for sample in samps:
+        low = LOW_SAMPLE_ALLEL_FREQS[sample][stu]
+        if low > 0:
+            print(stu + sample + str(low))
+        if sample in lowsamples:
+            print('lowsamples: ' + sample)
 
 #############################################################
 # write to files
@@ -311,12 +326,15 @@ with open(args.info_file, 'r') as f:
 
 match_filename = args.outfiles_prefix + '_match_ratios.txt'
 with open(match_filename, "w+") as f:
-    f.write('SAMPLE\tMATCH_RATIO\tSITES\t\tLOW_FREQS_' +
+    f.write('SAMPLE\tMATCH_RATIO\tSITES\tLOW_FREQS_' +
             ('\tLOW_FREQS_').join(sorted(FREQ_FILES.keys())) + '\t'
             + ('\t').join(info_fields))
-    for sample in MATCH_RATIO.keys():
-        LOWS = [str(LOW_SAMPLE_ALLEL_FREQS[sample][f]) for f in
+    for sample in samps:
+        LOWS = [str(LOW_SAMPLE_ALLEL_FREQS[sample][s]) for s in
                 sorted(FREQ_FILES.keys())]
+        if sample in lowsamples:
+            print(LOWS)
+            print(LOW_SAMPLE_ALLEL_FREQS[sample])
         f.write(sample + "\t" + str(MATCH_RATIO[sample]) + "\t"
                 + ('\t').join(LOWS) + '\t'
                 + ("\t").join(SAMPLE_INFO[sample[2:-2]]))
@@ -324,13 +342,10 @@ with open(match_filename, "w+") as f:
 den_freq_filename = args.outfiles_prefix + '_den_freqs.txt'
 with open(den_freq_filename, 'w+') as f:
     for sample in MATCHING_SITES_PER_SAMPLE.keys():
-        print(sample)
-        positions = sorted(MATCHING_SITES_PER_SAMPLE[sample].keys())
-        print(positions)
+        positions = sorted(MATCHING_SITES_PER_SAMPLE[sample])
         f.write('\n' + sample + '\nSTUDY\t' + '\t'.join(map(str, positions))
                 + '\n')
         for study in sorted(FREQ_FILES.keys()):
-            print(study)
             f.write(study + '\t' +
                     '\t'.join(map(str,
                                   [SAMPLE_ALLEL_FREQS[sample][study][a] for
