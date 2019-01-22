@@ -41,8 +41,8 @@ For flanking region analysis you will need:
 * phased genotypes for worldwide populations (e.g. 1000 GP or SGDP dataset)
 * phased genotypes for analysed samples
 * archaic vcf-file
-* file with phase information for NUMTs
-* file with sample informations
+* file with phase information for archaic NUMT (example: phases.txt)
+* file with sample informations (example: all_studies_samples.txt)
 
 Workflow
 --------
