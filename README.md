@@ -37,6 +37,13 @@ In addition you will need:
 * RSRS reference sequence: https://www.ncbi.nlm.nih.gov/pmc/articles/PMC3322232/
 * alignment file with chimp and human mitochondrial genomes used for phylogenetic analysis. Must contain RSRS as a reference
 
+For flanking region analysis you will need:
+* phased genotypes for worldwide populations (e.g. 1000 GP or SGDP dataset)
+* phased genotypes for analysed samples
+* archaic vcf-file
+* file with phase information for NUMTs
+* file with sample informations
+
 Workflow
 --------
 Split the NUMT read files into single bam-files for each NUMT:
