@@ -26,7 +26,7 @@ parser.add_argument('-s', '--samples-vcf', nargs='+', action='store',
                     help='list of phased vcfs from samples to analyse')
 parser.add_argument('-a', '--archaic-vcf', action='store',
                     help='vcf of putative introgressed archaic human')
-parser.add_argument('-p', '--numt_phase', action='store', help='''file with
+parser.add_argument('-p', '--numt-phase', action='store', help='''file with
                     phase information for archaic numt. first column sample
                     name, secon column phase''')
 parser.add_argument('-t', '--threads', action='store')
