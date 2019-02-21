@@ -29,13 +29,14 @@ parser.add_argument('-a', '--archaic-vcf', action='store',
 parser.add_argument('-p', '--numt-phase', action='store', help='''file with
                     phase information for archaic numt. first column sample
                     name, secon column phase''')
-parser.add_argument('-t', '--threads', action='store')
+parser.add_argument('-t', '--threads', action='store', type=int)
 parser.add_argument('-r', '--region', action='store', help='''chromosomal
                     position, e.g. 3:1384800-1385800''')
 parser.add_argument('-o', '--outfiles-prefix', action='store')
 parser.add_argument('-i', '--info-file', action='store', help='''file with
                     sample informations in columns. first row name of
                     categories, first column sample names''')
+parser.add_argument('-T', '--temp-dir', action='store')
 
 args = parser.parse_args()
 
@@ -145,9 +146,9 @@ def get_sample_stats(intake):
     unphased = []
     for record in den_file.fetch(chrom, start, end):
         DEN_VS[record.POS] = record.genotype('Denisova')
-    temp_name = '/home/robert_buecking/flanking_region/temp_file' + str(n)
+    temp_name = args.temp_dir + 'temp_file' + str(n)
     temp = open(temp_name, 'w+')
-    print('analzing file: ' + vcf_hum.filename)
+    print('analzing SAMPLES_FILE: ' + vcf_hum.filename)
     for sample in vcf_hum.samples:
         HUM_VS = {}
         for record in vcf_hum.fetch(chrom, start, end):
@@ -215,9 +216,9 @@ MATCH_RATIO = {}
 
 print('start analyzing match ratios')
 # get matching positions
-# pool = mp.Pool(processes=20)
-# results = pool.map(get_sample_stats, [(x, STUDIES[x]) for x in
-#                                       range(len(STUDIES))])
+pool = mp.Pool(processes=args.threads)
+results = pool.map(get_sample_stats, [(x, STUDIES[x]) for x in
+                                      range(len(STUDIES))])
 
 # processes = [mp.Process(target=get_sample_stats, args=(x, STUDIES[x]))
 #              for x in range(len(STUDIES))]
@@ -228,16 +229,18 @@ print('start analyzing match ratios')
 #     p.join()
 #
 # results = [output.get() for p in processes]
+
+
 # if program fails after here, just comment lines above and uncomment lines
 # below to prevent starting analysis all over again. change names of tmep files
 # also comment os.remove
 # at the end of the script so temp files don't get removed
-results = [(0, '/home/robert_buecking/flanking_region/temp_file0'),
-           (1, '/home/robert_buecking/flanking_region/temp_file1'),
-           (2, '/home/robert_buecking/flanking_region/temp_file2'),
-           (3, '/home/robert_buecking/flanking_region/temp_file3'),
-           (4, '/home/robert_buecking/flanking_region/temp_file4'),
-           (5, '/home/robert_buecking/flanking_region/temp_file5')]
+# results = [(0, '/home/robert_buecking/flanking_region/temp_file0'),
+#            (1, '/home/robert_buecking/flanking_region/temp_file1'),
+#            (2, '/home/robert_buecking/flanking_region/temp_file2'),
+#            (3, '/home/robert_buecking/flanking_region/temp_file3'),
+#            (4, '/home/robert_buecking/flanking_region/temp_file4'),
+#            (5, '/home/robert_buecking/flanking_region/temp_file5')]
 results.sort()
 
 # calculate match ratios
