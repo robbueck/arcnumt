@@ -185,7 +185,7 @@ def allel_freq(vcf_file_name, positions):
                 den = record.ALT
                 if len(den) > 1:
                     raise Exception('too many alt-dens')
-        for record in vcf_file.fetch(3, pos - 1, pos):
+        for record in vcf_file.fetch(chrom, pos - 1, pos):
             if record.POS == pos:
                 if den[0] in record.ALT:
                     x = record.ALT.index(den[0])
