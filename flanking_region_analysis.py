@@ -180,7 +180,7 @@ def allel_freq(vcf_file_name, positions):
     for pos in set(positions):
         FREQ[pos] = 0
         den = 'jq'
-        for record in den_file.fetch(3, pos - 1, pos):
+        for record in den_file.fetch(chrom, pos - 1, pos):
             if record.POS == pos:
                 den = record.ALT
                 if len(den) > 1:
@@ -308,13 +308,13 @@ for sample in samps:
     #     print(LOW_SAMPLE_ALLEL_FREQS[lsamp])
     #     lowsamples.append(sample)
     #     print((LOW_SAMPLE_ALLEL_FREQS))
-for stu in FREQ_FILES.keys():
-    for sample in samps:
-        low = LOW_SAMPLE_ALLEL_FREQS[sample][stu]
-        if low > 0:
-            print(stu + sample + str(low))
-        if sample in lowsamples:
-            print('lowsamples: ' + sample)
+# for stu in FREQ_FILES.keys():
+#     for sample in samps:
+#         low = LOW_SAMPLE_ALLEL_FREQS[sample][stu]
+#         if low > 0:
+#             print(stu + sample + str(low))
+#         if sample in lowsamples:
+#             print('lowsamples: ' + sample)
 
 #############################################################
 # write to files
